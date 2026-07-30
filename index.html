@@ -45,15 +45,16 @@
     font-weight:700; font-size:.8rem;}
   .login-card h2{margin:6px 0 10px; font-size:1.4rem;}
   .login-card p{font-size:.88rem; color:var(--muted); margin-bottom:16px;}
-  .login-card input{width:100%; padding:11px 12px; border:1px solid var(--border);
-    border-radius:8px; font-size:.95rem; margin-bottom:10px;}
+  .login-card input, .login-card select{width:100%; padding:11px 12px; border:1px solid var(--border);
+    border-radius:8px; font-size:.95rem; margin-bottom:10px; background:#fff; color:var(--text);}
   .login-card button{width:100%;}
+  .name-row{display:flex; gap:8px;}
+  .name-row input{min-width:0;}
+  .fld-lbl{display:block; text-align:left; font-size:.75rem; color:var(--muted); margin:0 0 3px 2px;}
+  .switch-line{margin-top:14px; font-size:.85rem; color:var(--muted);}
+  .lnk{color:var(--blue); cursor:pointer; text-decoration:underline; font-weight:600;}
+  #regMsg{margin-top:10px; font-size:.85rem; color:var(--danger); font-weight:600;}
   #loginMsg{margin-top:12px; font-size:.85rem; color:var(--danger); font-weight:600;}
-  .sent-icon{font-size:2.6rem;}
-  .sent-title{font-size:1.15rem; font-weight:700; color:var(--plan); margin-top:4px;}
-  .sent-tips{font-size:.82rem; color:var(--muted); text-align:left; background:#f4f6fb;
-    border-radius:10px; padding:12px 14px; margin:14px 0;}
-  .sent-link{color:var(--blue); font-size:.85rem; cursor:pointer; text-decoration:underline;}
   button:disabled, button:disabled:hover{opacity:.45; cursor:default; background:#eef1f8; color:var(--muted);}
   main{max-width:1100px; margin:0 auto; padding:20px;}
   section{background:var(--card); border-radius:14px; padding:22px;
@@ -179,10 +180,10 @@
     </div>
     <div class="profile">
       <div class="profile-title">Traveller Profile</div>
-      <div class="profile-row"><span>Name</span><strong>Pham Thanh Tuyen</strong></div>
-      <div class="profile-row"><span>Date of birth</span><strong>21.10.1991</strong></div>
-      <div class="profile-row"><span>Residence</span><strong>Dubai, UAE</strong></div>
-      <div class="profile-row"><span>Current visa</span><strong>3-year Multi-Entry</strong></div>
+      <div class="profile-row"><span>Name</span><strong id="pfName">—</strong></div>
+      <div class="profile-row"><span>Date of birth</span><strong id="pfDob">—</strong></div>
+      <div class="profile-row"><span>Residence</span><strong id="pfRes">—</strong></div>
+      <div class="profile-row"><span>Current visa</span><strong id="pfVisa">—</strong></div>
     </div>
   </div>
   <div id="userBar">
@@ -194,25 +195,37 @@
 <div id="loginOverlay">
   <div class="login-card">
     <div class="subtitle">★ EuroStay ★</div>
-    <h2>Sign in</h2>
-    <p>Enter your email address and we'll send you a login link — no password needed.
-    Your trips are stored securely and appear on every device you sign in on.</p>
-    <div id="loginForm">
-      <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
-      <button id="sendBtn" onclick="sendLink()">Email me a login link</button>
+    <div id="viewSignin">
+      <h2>Sign in</h2>
+      <p>Your trips are stored securely and appear on every device you sign in on.</p>
+      <input type="email" id="loginEmail" placeholder="Email address" autocomplete="email">
+      <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password">
+      <button id="signInBtn" onclick="signIn()">Sign in</button>
       <div id="loginMsg"></div>
+      <div class="switch-line">No account yet? <a class="lnk" onclick="showRegister()">Create new account</a></div>
     </div>
-    <div id="loginSent" style="display:none">
-      <div class="sent-icon">📬</div>
-      <div class="sent-title">Login link sent!</div>
-      <p style="margin-top:8px">We emailed a sign-in link to<br><strong id="sentEmail"></strong></p>
-      <div class="sent-tips">
-        Open the email and click the link — this page will log in automatically.<br><br>
-        Not there after 2–3 minutes? <strong>Check your spam folder</strong>
-        (sender is “Supabase”). Yahoo and Outlook filter it often.
+    <div id="viewRegister" style="display:none">
+      <h2>Create account</h2>
+      <div class="name-row">
+        <input type="text" id="regFirst" placeholder="First name">
+        <input type="text" id="regLast" placeholder="Last name">
       </div>
-      <button id="resendBtn" class="secondary" onclick="resendLink()" disabled>Send again (60s)</button>
-      <div style="margin-top:10px"><a class="sent-link" onclick="backToForm()">Use a different email</a></div>
+      <label class="fld-lbl" for="regDob">Date of birth</label>
+      <input type="date" id="regDob">
+      <input type="text" id="regRes" placeholder="Residence (city, country)">
+      <label class="fld-lbl" for="regVisa">Schengen visa type</label>
+      <select id="regVisa">
+        <option>1-year Multi-Entry</option>
+        <option>2-year Multi-Entry</option>
+        <option selected>3-year Multi-Entry</option>
+        <option>5-year Multi-Entry</option>
+      </select>
+      <input type="email" id="regEmail" placeholder="Email address" autocomplete="email">
+      <input type="password" id="regPass" placeholder="Password (min. 8 characters)" autocomplete="new-password">
+      <input type="password" id="regPass2" placeholder="Repeat password" autocomplete="new-password">
+      <button id="regBtn" onclick="signUp()">Create account</button>
+      <div id="regMsg"></div>
+      <div class="switch-line">Already registered? <a class="lnk" onclick="showSignin()">Sign in</a></div>
     </div>
   </div>
 </div>
@@ -379,50 +392,62 @@ async function initAuth(){
     if (ev === "SIGNED_OUT") location.reload();
   });
 }
-let lastEmail = "";
-async function sendLink(){
+function showRegister(){
+  document.getElementById("viewSignin").style.display = "none";
+  document.getElementById("viewRegister").style.display = "block";
+}
+function showSignin(){
+  document.getElementById("viewRegister").style.display = "none";
+  document.getElementById("viewSignin").style.display = "block";
+}
+async function signIn(){
   const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
   const msg = document.getElementById("loginMsg");
-  if (!email || !email.includes("@")){ msg.textContent = "Please enter a valid email address."; return; }
-  const btn = document.getElementById("sendBtn");
-  btn.disabled = true; btn.textContent = "Sending…"; msg.textContent = "";
-  const { error } = await db.auth.signInWithOtp({ email,
-    options: { emailRedirectTo: window.location.origin + window.location.pathname } });
-  btn.disabled = false; btn.textContent = "Email me a login link";
+  if (!email.includes("@") || !pass){ msg.textContent = "Please enter your email and password."; return; }
+  const b = document.getElementById("signInBtn");
+  b.disabled = true; b.textContent = "Signing in…"; msg.textContent = "";
+  const { error } = await db.auth.signInWithPassword({ email, password: pass });
+  b.disabled = false; b.textContent = "Sign in";
   if (error){
-    msg.textContent = /rate|seconds|limit/i.test(error.message)
-      ? "Too many emails requested — please wait a while before trying again."
+    msg.textContent = /invalid/i.test(error.message)
+      ? "Wrong email or password. New here? Use “Create new account”."
+      : "Error: " + error.message;
+  }
+}
+async function signUp(){
+  const v = id => document.getElementById(id).value;
+  const first = v("regFirst").trim(), last = v("regLast").trim(), dob = v("regDob"),
+        res = v("regRes").trim(), visa = v("regVisa"), email = v("regEmail").trim(),
+        p1 = v("regPass"), p2 = v("regPass2");
+  const msg = document.getElementById("regMsg");
+  if (!first || !last){ msg.textContent = "Please enter your first and last name."; return; }
+  if (!dob){ msg.textContent = "Please enter your date of birth."; return; }
+  if (!res){ msg.textContent = "Please enter your place of residence."; return; }
+  if (!email.includes("@")){ msg.textContent = "Please enter a valid email address."; return; }
+  if (p1.length < 8){ msg.textContent = "Password must have at least 8 characters."; return; }
+  if (p1 !== p2){ msg.textContent = "The passwords do not match."; return; }
+  const b = document.getElementById("regBtn");
+  b.disabled = true; b.textContent = "Creating account…"; msg.textContent = "";
+  const { data, error } = await db.auth.signUp({ email, password: p1,
+    options: { data: { first_name: first, last_name: last, dob, residence: res, visa } } });
+  b.disabled = false; b.textContent = "Create account";
+  if (error){
+    msg.textContent = /already|registered/i.test(error.message)
+      ? "This email already has an account — use “Sign in”."
       : "Error: " + error.message;
     return;
   }
-  lastEmail = email;
-  document.getElementById("loginForm").style.display = "none";
-  document.getElementById("loginSent").style.display = "block";
-  document.getElementById("sentEmail").textContent = email;
-  startCooldown();
+  if (!data.session) msg.textContent = "Account created — please sign in.";
 }
-function startCooldown(){
-  const b = document.getElementById("resendBtn");
-  let t = 60;
-  b.disabled = true; b.textContent = "Send again (" + t + "s)";
-  const iv = setInterval(() => {
-    t--;
-    if (t <= 0){ clearInterval(iv); b.disabled = false; b.textContent = "Send again"; }
-    else b.textContent = "Send again (" + t + "s)";
-  }, 1000);
-}
-async function resendLink(){
-  const b = document.getElementById("resendBtn");
-  b.disabled = true; b.textContent = "Sending…";
-  const { error } = await db.auth.signInWithOtp({ email: lastEmail,
-    options: { emailRedirectTo: window.location.origin + window.location.pathname } });
-  if (error){ b.textContent = "Try later — limit reached"; return; }
-  startCooldown();
-}
-function backToForm(){
-  document.getElementById("loginSent").style.display = "none";
-  document.getElementById("loginForm").style.display = "block";
-  document.getElementById("loginEmail").value = "";
+function fillProfile(user){
+  const md = user.user_metadata || {};
+  const name = ((md.first_name || "") + " " + (md.last_name || "")).trim();
+  document.getElementById("pfName").textContent = name || user.email;
+  document.getElementById("pfDob").textContent = md.dob
+    ? md.dob.split("-").reverse().join(".") : "—";
+  document.getElementById("pfRes").textContent = md.residence || "—";
+  document.getElementById("pfVisa").textContent = md.visa || "—";
 }
 async function signOut(){ await db.auth.signOut(); }
 
@@ -431,6 +456,7 @@ async function startApp(session){
   document.getElementById("loginOverlay").style.display = "none";
   document.getElementById("userBar").style.display = "flex";
   document.getElementById("userEmail").textContent = session.user.email;
+  fillProfile(session.user);
   trips = await loadTrips();
   await migrateLocal();
   refresh();
