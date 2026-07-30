@@ -24,6 +24,22 @@
   .hdr-text .legal{font-size:.78rem; opacity:.75; margin-top:6px; max-width:640px;}
   @media(max-width:600px){ .hdr-inner{flex-direction:column; text-align:center;}
     .hdr-text .legal{display:none;} }
+  #userBar{display:none; justify-content:flex-end; align-items:center; gap:12px;
+    max-width:1100px; margin:10px auto 0; font-size:.8rem; opacity:.92;}
+  #userBar button{padding:5px 12px; font-size:.75rem; background:rgba(255,255,255,.15);}
+  #userBar button:hover{background:rgba(255,255,255,.28);}
+  #loginOverlay{position:fixed; inset:0; background:rgba(6,16,54,.6);
+    backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center; z-index:50;}
+  .login-card{background:#fff; border-radius:16px; padding:34px 30px; max-width:380px;
+    width:92%; box-shadow:0 10px 40px rgba(0,0,0,.35); text-align:center;}
+  .login-card .subtitle{color:var(--blue); text-transform:uppercase; letter-spacing:1.5px;
+    font-weight:700; font-size:.8rem;}
+  .login-card h2{margin:6px 0 10px; font-size:1.4rem;}
+  .login-card p{font-size:.88rem; color:var(--muted); margin-bottom:16px;}
+  .login-card input{width:100%; padding:11px 12px; border:1px solid var(--border);
+    border-radius:8px; font-size:.95rem; margin-bottom:10px;}
+  .login-card button{width:100%;}
+  #loginMsg{margin-top:12px; font-size:.85rem; color:var(--plan); font-weight:600;}
   main{max-width:1100px; margin:0 auto; padding:20px;}
   section{background:var(--card); border-radius:14px; padding:22px;
     margin-bottom:22px; box-shadow:0 1px 4px rgba(0,0,0,.07);}
@@ -148,7 +164,23 @@
       Personal planning tool — not an official document of the European Union.</div>
     </div>
   </div>
+  <div id="userBar">
+    <span>Signed in as <strong id="userEmail"></strong></span>
+    <button onclick="signOut()">Sign out</button>
+  </div>
 </header>
+
+<div id="loginOverlay">
+  <div class="login-card">
+    <div class="subtitle">★ EuroStay ★</div>
+    <h2>Sign in</h2>
+    <p>Enter your email address and we'll send you a login link — no password needed.
+    Your trips are stored securely and appear on every device you sign in on.</p>
+    <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
+    <button onclick="sendLink()">Email me a login link</button>
+    <div id="loginMsg"></div>
+  </div>
+</div>
 
 <main>
 
@@ -278,13 +310,20 @@
   Both the day of entry and the day of exit count as full days of stay. The 3-year multi-entry visa
   allows repeated entries, but never more than 90/180. This tool is a planning aid, not legal advice —
   always verify with the official EU short-stay calculator before travelling.</p>
-  <p style="margin-top:6px">Trips are stored in this browser. Use “Backup trips” regularly to keep a copy,
-  and “Restore backup” after switching devices or browsers.</p>
+  <p style="margin-top:6px">Trips are stored securely in the cloud and linked to your login —
+  sign in with the same email on any device to see the same data. “Backup trips” downloads
+  an extra safety copy as a file.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
 const MS = 86400000, LIMIT = 90, WINDOW = 180, KEY = "eurostay_tuyen_trips";
+
+/* ---------- cloud database (Supabase) ---------- */
+const SB_URL = "https://jyeiwsqzbktdvvoclxej.supabase.co";
+const SB_KEY = "sb_publishable_RdcFFZyvoAaeU1S9YkYJiw_C1l11kZL";
+const db = window.supabase.createClient(SB_URL, SB_KEY);
 
 /* ---------- date helpers (all UTC-based day numbers) ---------- */
 function dnum(iso){ const [y,m,d] = iso.split("-").map(Number); return Math.floor(Date.UTC(y, m-1, d)/MS); }
@@ -292,10 +331,58 @@ function iso(n){ return new Date(n*MS).toISOString().slice(0,10); }
 function fmt(n){ return new Date(n*MS).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}); }
 function todayNum(){ const t = new Date(); return Math.floor(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())/MS); }
 
-/* ---------- data ---------- */
-function loadTrips(){ try { const t = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(t) ? t : []; } catch(e){ return []; } }
-function saveTrips(t){ localStorage.setItem(KEY, JSON.stringify(t)); }
-let trips = loadTrips();
+/* ---------- data (lives in the cloud database) ---------- */
+let trips = [];
+
+async function loadTrips(){
+  const { data, error } = await db.from("trips").select("*").order("entry_date");
+  if (error){ alert("Could not load trips: " + error.message); return []; }
+  return data.map(r => ({ id: r.id, entry: r.entry_date, exit: r.exit_date, note: r.note || "" }));
+}
+
+/* ---------- auth ---------- */
+let appStarted = false;
+async function initAuth(){
+  const { data: { session } } = await db.auth.getSession();
+  if (session) startApp(session);
+  db.auth.onAuthStateChange((ev, sess) => {
+    if (ev === "SIGNED_IN" && sess && !appStarted) startApp(sess);
+    if (ev === "SIGNED_OUT") location.reload();
+  });
+}
+async function sendLink(){
+  const email = document.getElementById("loginEmail").value.trim();
+  if (!email){ alert("Please enter your email address."); return; }
+  const { error } = await db.auth.signInWithOtp({ email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname } });
+  document.getElementById("loginMsg").textContent = error
+    ? "Error: " + error.message
+    : "Check your inbox (" + email + ") and click the login link.";
+}
+async function signOut(){ await db.auth.signOut(); }
+
+async function startApp(session){
+  appStarted = true;
+  document.getElementById("loginOverlay").style.display = "none";
+  document.getElementById("userBar").style.display = "flex";
+  document.getElementById("userEmail").textContent = session.user.email;
+  trips = await loadTrips();
+  await migrateLocal();
+  refresh();
+}
+
+/* one-time: copy trips saved in this browser (old version) into the cloud */
+async function migrateLocal(){
+  try {
+    const local = JSON.parse(localStorage.getItem(KEY)) || [];
+    if (local.length && trips.length === 0 &&
+        confirm("Found " + local.length + " trip(s) saved on this device from before. Copy them to your account?")){
+      const { error } = await db.from("trips").insert(
+        local.map(t => ({ entry_date: t.entry, exit_date: t.exit, note: t.note || "" })));
+      if (!error){ localStorage.removeItem(KEY); trips = await loadTrips(); }
+    }
+  } catch(e){}
+}
 let calYear = new Date().getFullYear();
 let plannedRange = null; // {start,end} day numbers
 
@@ -456,24 +543,26 @@ function renderCalendar(){
 }
 
 /* ---------- trips ---------- */
-function addTrip(){
+async function addTrip(){
   const e = document.getElementById("tEntry").value;
   const x = document.getElementById("tExit").value;
   const note = document.getElementById("tNote").value.trim();
   if (!e || !x){ alert("Please fill in entry and exit dates."); return; }
   if (dnum(x) < dnum(e)){ alert("Exit date must be on or after the entry date."); return; }
   if (dnum(x) - dnum(e) + 1 > 90 && !confirm("This trip is longer than 90 days — that would exceed the Schengen limit. Add anyway?")) return;
-  trips.push({ id: Date.now(), entry: e, exit: x, note });
-  saveTrips(trips);
+  const { error } = await db.from("trips").insert({ entry_date: e, exit_date: x, note });
+  if (error){ alert("Could not save trip: " + error.message); return; }
+  trips = await loadTrips();
   document.getElementById("tEntry").value = "";
   document.getElementById("tExit").value = "";
   document.getElementById("tNote").value = "";
   refresh();
 }
-function deleteTrip(id){
+async function deleteTrip(id){
   if (!confirm("Delete this trip?")) return;
-  trips = trips.filter(t => t.id !== id);
-  saveTrips(trips);
+  const { error } = await db.from("trips").delete().eq("id", id);
+  if (error){ alert("Could not delete trip: " + error.message); return; }
+  trips = await loadTrips();
   refresh();
 }
 function renderTrips(){
@@ -484,7 +573,7 @@ function renderTrips(){
     const days = dnum(t.exit) - dnum(t.entry) + 1;
     return '<tr><td>' + fmt(dnum(t.entry)) + '</td><td>' + fmt(dnum(t.exit)) + '</td>' +
       '<td><strong>' + days + '</strong></td><td>' + (t.note ? t.note.replace(/</g,"&lt;") : "—") + '</td>' +
-      '<td><button class="danger-btn" onclick="deleteTrip(' + t.id + ')" title="Delete">🗑</button></td></tr>';
+      '<td><button class="danger-btn" onclick="deleteTrip(\'' + t.id + '\')" title="Delete">🗑</button></td></tr>';
   }).join("");
   el.innerHTML = '<table><thead><tr><th>Entry</th><th>Exit</th><th>Days</th><th>Note</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
@@ -640,15 +729,20 @@ function importData(ev){
   const f = ev.target.files[0];
   if (!f) return;
   const r = new FileReader();
-  r.onload = () => {
+  r.onload = async () => {
     try {
       const data = JSON.parse(r.result);
       const arr = Array.isArray(data) ? data : data.trips;
       if (!Array.isArray(arr)) throw new Error("bad format");
-      trips = arr.filter(t => t.entry && t.exit).map(t => ({ id: t.id || Date.now()+Math.random(), entry: t.entry, exit: t.exit, note: t.note || "" }));
-      saveTrips(trips);
+      const rows = arr.filter(t => t.entry && t.exit)
+        .map(t => ({ entry_date: t.entry, exit_date: t.exit, note: t.note || "" }));
+      if (!rows.length) throw new Error("empty");
+      if (!confirm("Add " + rows.length + " trip(s) from this backup to the account?")) return;
+      const { error } = await db.from("trips").insert(rows);
+      if (error){ alert("Could not restore: " + error.message); return; }
+      trips = await loadTrips();
       refresh();
-      alert("Backup restored: " + trips.length + " trips loaded.");
+      alert("Backup restored: " + rows.length + " trips added.");
     } catch(e){ alert("Could not read this file — is it an EuroStay backup?"); }
   };
   r.readAsText(f);
@@ -661,6 +755,7 @@ document.getElementById("planDate").value = iso(todayNum());
 updateToggle();
 updateCalToggle();
 refresh();
+initAuth();
 </script>
 </body>
 </html>
