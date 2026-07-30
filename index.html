@@ -232,7 +232,7 @@
         <div class="lbl">days within the last 365 days</div>
       </div>
       <div class="stat">
-        <div class="num" id="stWin">0<span style="font-size:1.1rem;color:var(--muted)">/90</span></div>
+        <div class="num" id="stWin">0<span style="font-size:1.1rem;color:var(--muted);margin-left:4px">/ 90</span></div>
         <div class="lbl">days used in the current 180-day window</div>
         <div class="bar"><div id="winBar" style="width:0%"></div></div>
       </div>
@@ -505,7 +505,7 @@ function renderStats(){
   const used = usedInWindow(set, today);
   const remain = Math.max(0, LIMIT - used);
   const winEl = document.getElementById("stWin");
-  winEl.innerHTML = used + '<span style="font-size:1.1rem;color:var(--muted)">/90</span>';
+  winEl.innerHTML = used + '<span style="font-size:1.1rem;color:var(--muted);margin-left:4px">/ 90</span>';
   winEl.className = "num " + (used >= 90 ? "bad" : used >= 70 ? "warn" : "");
   const bar = document.getElementById("winBar");
   bar.style.width = Math.min(100, used/LIMIT*100) + "%";
