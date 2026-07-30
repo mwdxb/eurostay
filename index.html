@@ -22,8 +22,17 @@
   .hdr-text .subtitle{font-size:.95rem; opacity:.92; margin-top:2px;
     text-transform:uppercase; letter-spacing:1.5px; font-weight:600; color:var(--gold);}
   .hdr-text .legal{font-size:.78rem; opacity:.75; margin-top:6px; max-width:640px;}
+  .hdr-inner{flex-wrap:wrap;}
+  .profile{margin-left:auto; background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,204,0,.5); border-radius:12px; padding:12px 18px;
+    font-size:.8rem; min-width:250px;}
+  .profile-title{color:var(--gold); text-transform:uppercase; letter-spacing:1.2px;
+    font-weight:700; font-size:.68rem; margin-bottom:7px;}
+  .profile-row{display:flex; justify-content:space-between; gap:18px; padding:2.5px 0;}
+  .profile-row span{opacity:.75;}
   @media(max-width:600px){ .hdr-inner{flex-direction:column; text-align:center;}
-    .hdr-text .legal{display:none;} }
+    .hdr-text .legal{display:none;}
+    .profile{margin:0 auto; width:100%; max-width:320px;} }
   #userBar{display:none; justify-content:flex-end; align-items:center; gap:12px;
     max-width:1100px; margin:10px auto 0; font-size:.8rem; opacity:.92;}
   #userBar button{padding:5px 12px; font-size:.75rem; background:rgba(255,255,255,.15);}
@@ -163,10 +172,17 @@
     </svg>
     <div class="hdr-text">
       <div class="subtitle">Schengen Short-Stay Portal</div>
-      <h1>EuroStay — Tuyen Pham</h1>
+      <h1>EuroStay</h1>
       <div class="legal">Stay calculation pursuant to Article 6(1) of Regulation (EU) 2016/399
       (Schengen Borders Code): maximum stay of 90 days in any 180-day period.
-      Personal planning tool — not an official document of the European Union.</div>
+      Planning tool — not an official document of the European Union.</div>
+    </div>
+    <div class="profile">
+      <div class="profile-title">Traveller Profile</div>
+      <div class="profile-row"><span>Name</span><strong>Pham Thanh Tuyen</strong></div>
+      <div class="profile-row"><span>Date of birth</span><strong>21.10.1991</strong></div>
+      <div class="profile-row"><span>Residence</span><strong>Dubai, UAE</strong></div>
+      <div class="profile-row"><span>Current visa</span><strong>3-year Multi-Entry</strong></div>
     </div>
   </div>
   <div id="userBar">
@@ -209,7 +225,7 @@
     <div class="stats">
       <div class="stat">
         <div class="num" id="stYear">0</div>
-        <div class="lbl">days in Schengen since <span id="stYearLbl">Jan 1</span></div>
+        <div class="lbl">days in Schengen<br>since <span id="stYearLbl">Jan 1</span></div>
       </div>
       <div class="stat">
         <div class="num" id="st365">0</div>
@@ -616,7 +632,7 @@ async function deleteTrip(id){
 }
 function renderTrips(){
   const el = document.getElementById("tripList");
-  if (!trips.length){ el.innerHTML = '<div class="empty">No trips yet — add Tuyen’s past and future Schengen trips above.</div>'; return; }
+  if (!trips.length){ el.innerHTML = '<div class="empty">No trips yet</div>'; return; }
   const sorted = [...trips].sort((a,b) => dnum(b.entry) - dnum(a.entry));
   let rows = sorted.map(t => {
     const days = dnum(t.exit) - dnum(t.entry) + 1;
