@@ -397,6 +397,7 @@
       <span class="toggle">
         <button type="button" id="tgYear" onclick="setStatsMode('year')">Since Jan 1</button>
         <button type="button" id="tg365" onclick="setStatsMode('365')">Last 365 days</button>
+        <button type="button" id="tg180" onclick="setStatsMode('180')">Last 180 days</button>
       </span>
     </h2>
     <div class="subhead" style="border-top:none; padding-top:0; margin-top:4px">Inside vs outside Schengen — <span id="shLabel"></span></div>
@@ -748,10 +749,12 @@ let statsMode = localStorage.getItem("eurostay_stats_mode") || "365";
 function statsRange(){
   const today = todayNum();
   if (statsMode === "year") return [dnum(new Date().getFullYear() + "-01-01"), today];
+  if (statsMode === "180") return [today - 179, today];
   return [today - 364, today];
 }
 function statsLabel(){
-  return statsMode === "year" ? "since Jan 1, " + new Date().getFullYear() : "last 365 days";
+  return statsMode === "year" ? "since Jan 1, " + new Date().getFullYear()
+       : statsMode === "180" ? "last 180 days" : "last 365 days";
 }
 function setStatsMode(m){
   statsMode = m;
@@ -761,6 +764,7 @@ function setStatsMode(m){
 function updateToggle(){
   document.getElementById("tgYear").className = statsMode === "year" ? "active" : "";
   document.getElementById("tg365").className = statsMode === "365" ? "active" : "";
+  document.getElementById("tg180").className = statsMode === "180" ? "active" : "";
   document.getElementById("shLabel").textContent = statsLabel();
 }
 
