@@ -89,7 +89,7 @@
   /* Planner */
   .planner-row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;}
   label{display:block; font-size:.82rem; color:var(--muted); margin-bottom:4px;}
-  input[type=date], input[type=text]{padding:9px 12px; border:1px solid var(--border);
+  input[type=date], input[type=text], select{padding:9px 12px; border:1px solid var(--border);
     border-radius:8px; font-size:.95rem; background:#fff; color:var(--text);}
   button{background:var(--blue); color:#fff; border:none; border-radius:8px;
     padding:10px 18px; font-size:.95rem; cursor:pointer; font-weight:600;}
@@ -363,9 +363,24 @@
         <label for="tExit">Exit date</label>
         <input type="date" id="tExit">
       </div>
+      <div>
+        <label for="tPoe">Point of entry</label>
+        <select id="tPoe">
+          <option>Austria</option><option>Belgium</option><option>Bulgaria</option>
+          <option>Croatia</option><option>Czech Republic</option><option>Denmark</option>
+          <option>Estonia</option><option>Finland</option><option>France</option>
+          <option selected>Germany</option><option>Greece</option><option>Hungary</option>
+          <option>Iceland</option><option>Italy</option><option>Latvia</option>
+          <option>Liechtenstein</option><option>Lithuania</option><option>Luxembourg</option>
+          <option>Malta</option><option>Netherlands</option><option>Norway</option>
+          <option>Poland</option><option>Portugal</option><option>Romania</option>
+          <option>Slovakia</option><option>Slovenia</option><option>Spain</option>
+          <option>Sweden</option><option>Switzerland</option>
+        </select>
+      </div>
       <div style="flex:1;min-width:160px">
-        <label for="tNote">Country (used for statistics)</label>
-        <input type="text" id="tNote" placeholder="e.g. Germany" style="width:100%">
+        <label for="tNote">Note (optional)</label>
+        <input type="text" id="tNote" placeholder="e.g. Business trip to Darmstadt" style="width:100%">
       </div>
       <button onclick="addTrip()">Add trip</button>
     </div>
@@ -380,14 +395,7 @@
         <button type="button" id="tg365" onclick="setStatsMode('365')">Last 365 days</button>
       </span>
     </h2>
-    <div class="stats2-grid">
-      <div id="countryBars"></div>
-      <div class="donut-wrap">
-        <div id="countryDonut"></div>
-        <div class="donut-center" id="countryCenter"></div>
-      </div>
-    </div>
-    <div class="subhead">Inside vs outside Schengen — <span id="shLabel"></span></div>
+    <div class="subhead" style="border-top:none; padding-top:0; margin-top:4px">Inside vs outside Schengen — <span id="shLabel"></span></div>
     <div class="stats2-grid">
       <div id="schengenLegend"></div>
       <div class="donut-wrap">
@@ -431,7 +439,8 @@ let trips = [];
 async function loadTrips(){
   const { data, error } = await db.from("trips").select("*").order("entry_date");
   if (error){ alert("Could not load trips: " + error.message); return []; }
-  return data.map(r => ({ id: r.id, entry: r.entry_date, exit: r.exit_date, note: r.note || "" }));
+  return data.map(r => ({ id: r.id, entry: r.entry_date, exit: r.exit_date,
+    note: r.note || "", poe: r.entry_point || "" }));
 }
 
 /* ---------- auth ---------- */
@@ -696,7 +705,8 @@ async function addTrip(){
   if (!e || !x){ alert("Please fill in entry and exit dates."); return; }
   if (dnum(x) < dnum(e)){ alert("Exit date must be on or after the entry date."); return; }
   if (dnum(x) - dnum(e) + 1 > 90 && !confirm("This trip is longer than 90 days — that would exceed the Schengen limit. Add anyway?")) return;
-  const { error } = await db.from("trips").insert({ entry_date: e, exit_date: x, note });
+  const poe = document.getElementById("tPoe").value;
+  const { error } = await db.from("trips").insert({ entry_date: e, exit_date: x, note, entry_point: poe });
   if (error){ alert("Could not save trip: " + error.message); return; }
   trips = await loadTrips();
   document.getElementById("tEntry").value = "";
@@ -717,15 +727,17 @@ function renderTrips(){
   const sorted = [...trips].sort((a,b) => dnum(b.entry) - dnum(a.entry));
   let rows = sorted.map(t => {
     const days = dnum(t.exit) - dnum(t.entry) + 1;
+    const fl = flagFor(t.poe || "");
     return '<tr><td>' + fmt(dnum(t.entry)) + '</td><td>' + fmt(dnum(t.exit)) + '</td>' +
-      '<td><strong>' + days + '</strong></td><td>' + (t.note ? t.note.replace(/</g,"&lt;") : "—") + '</td>' +
+      '<td><strong>' + days + '</strong></td>' +
+      '<td>' + (t.poe ? (fl ? fl + " " : "") + esc(t.poe) : "—") + '</td>' +
+      '<td>' + (t.note ? esc(t.note) : "—") + '</td>' +
       '<td><button class="danger-btn" onclick="deleteTrip(\'' + t.id + '\')" title="Delete">🗑</button></td></tr>';
   }).join("");
-  el.innerHTML = '<table><thead><tr><th>Entry</th><th>Exit</th><th>Days</th><th>Note</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+  el.innerHTML = '<table><thead><tr><th>Entry</th><th>Exit</th><th>Days</th><th>Point of entry</th><th>Note</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 /* ---------- statistics ---------- */
-const PALETTE = ["#2563eb","#059669","#d97706","#dc2626","#7c3aed","#0891b2","#db2777","#65a30d","#475569"];
 function esc(s){ return String(s).replace(/</g,"&lt;"); }
 
 let statsMode = localStorage.getItem("eurostay_stats_mode") || "365";
@@ -740,27 +752,13 @@ function statsLabel(){
 function setStatsMode(m){
   statsMode = m;
   localStorage.setItem("eurostay_stats_mode", m);
-  updateToggle(); renderDistribution(); renderSchengenShare(); animateCharts();
+  updateToggle(); renderSchengenShare(); animateCharts();
 }
 function updateToggle(){
   document.getElementById("tgYear").className = statsMode === "year" ? "active" : "";
   document.getElementById("tg365").className = statsMode === "365" ? "active" : "";
   document.getElementById("shLabel").textContent = statsLabel();
 }
-
-function countryStats(a, b){
-  const map = new Map();
-  for (const t of trips){
-    const days = Math.max(0, Math.min(dnum(t.exit), b) - Math.max(dnum(t.entry), a) + 1);
-    if (!days) continue;
-    const name = (t.note || "").trim() || "Not specified";
-    const k = name.toLowerCase();
-    if (!map.has(k)) map.set(k, { name, days: 0 });
-    map.get(k).days += days;
-  }
-  return [...map.values()].sort((a2,b2) => b2.days - a2.days);
-}
-function segColor(name, i){ return name === "Not specified" ? "#94a3b8" : PALETTE[i % PALETTE.length]; }
 
 /* country name -> ISO code (Schengen countries + common aliases) */
 const ISO = {
@@ -824,31 +822,6 @@ function animateCharts(){
   }));
 }
 
-function renderDistribution(){
-  const bars = document.getElementById("countryBars"),
-        donut = document.getElementById("countryDonut"),
-        center = document.getElementById("countryCenter");
-  const [a, b] = statsRange();
-  const cs = countryStats(a, b);
-  if (!cs.length){
-    bars.innerHTML = '<div class="empty">No Schengen days in this period (' + statsLabel() + ').</div>';
-    donut.innerHTML = ""; center.innerHTML = ""; return;
-  }
-  const total = cs.reduce((a,c) => a + c.days, 0), maxD = cs[0].days;
-  bars.innerHTML = cs.map((c,i) => {
-    const col = segColor(c.name, i), pct = Math.round(c.days/total*100);
-    const fl = flagFor(c.name);
-    return '<div class="cbar-row"><div class="cbar-name" title="' + esc(c.name) + '">' +
-      (fl ? '<span class="flag">' + fl + '</span> ' : '') + esc(c.name) + '</div>' +
-      '<div class="cbar-track"><div class="cbar-fill" style="background:' + col + '" data-w="' + (c.days/maxD*100) + '"></div></div>' +
-      '<div class="cbar-val">' + c.days + ' day' + (c.days === 1 ? "" : "s") + ' · ' + pct + '%</div></div>';
-  }).join("");
-  donut.innerHTML = donutSVG(cs.map((c,i) => ({ frac: c.days/total, color: segColor(c.name, i) })));
-  const topFl = flagFor(cs[0].name);
-  center.innerHTML = (topFl ? '<div style="font-size:1.4rem;line-height:1">' + topFl + '</div>' : '') +
-    '<div class="pct">' + Math.round(cs[0].days/total*100) + '%</div><div class="who">' + esc(cs[0].name) + '</div>';
-}
-
 function renderSchengenShare(){
   const set = staySet();
   const [a, b] = statsRange();
@@ -864,7 +837,7 @@ function renderSchengenShare(){
 }
 
 /* ---------- init ---------- */
-function refresh(){ renderStats(); renderCalendar(); renderTrips(); renderDistribution(); renderSchengenShare(); animateCharts(); }
+function refresh(){ renderStats(); renderCalendar(); renderTrips(); renderSchengenShare(); animateCharts(); }
 /* date-of-birth: three boxes, digits only, cursor advances automatically */
 ["regDobD","regDobM","regDobY"].forEach((id, i, arr) => {
   const el = document.getElementById(id);
