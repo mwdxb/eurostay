@@ -728,7 +728,7 @@ async function deleteTrip(id){
 function renderTrips(){
   const el = document.getElementById("tripList");
   if (!trips.length){ el.innerHTML = '<div class="empty">No trips yet</div>'; return; }
-  const sorted = [...trips].sort((a,b) => dnum(b.entry) - dnum(a.entry));
+  const sorted = [...trips].sort((a,b) => dnum(b.entry) - dnum(a.entry) || dnum(b.exit) - dnum(a.exit));
   let rows = sorted.map(t => {
     const days = dnum(t.exit) - dnum(t.entry) + 1;
     const fl = flagFor(t.poe || "");
