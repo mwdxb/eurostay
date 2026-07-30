@@ -71,7 +71,9 @@
   /* Stats */
   .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px;}
   .stat{border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center;}
-  .stat .num{font-size:2.1rem; font-weight:700; color:var(--blue);}
+  .stat .num{font-size:2.1rem; font-weight:700; color:var(--blue);
+    display:flex; justify-content:center; align-items:baseline; gap:6px;
+    padding:0 4px; font-variant-numeric:tabular-nums;}
   .stat .num.ok{color:var(--plan);}
   .stat .num.warn{color:#d97706;}
   .stat .num.bad{color:var(--danger);}
@@ -254,7 +256,7 @@
         <input type="text" id="regLast" placeholder="Last name">
       </div>
       <label class="fld-lbl" for="regDob">Date of birth</label>
-      <input type="text" id="regDob" placeholder="DD/MM/YYYY" inputmode="numeric">
+      <input type="text" id="regDob" placeholder="DD/MM/YYYY" inputmode="numeric" maxlength="10" autocomplete="bday">
       <input type="text" id="regRes" placeholder="Residence (city, country)">
       <label class="fld-lbl" for="regVisa">Schengen visa type</label>
       <select id="regVisa">
@@ -288,7 +290,7 @@
         <div class="lbl">days within the last 365 days</div>
       </div>
       <div class="stat">
-        <div class="num" id="stWin">0<span style="font-size:1.1rem;color:var(--muted);margin-left:4px">/ 90</span></div>
+        <div class="num" id="stWin"><span>0</span><span style="font-size:1.1rem;color:var(--muted)">/ 90</span></div>
         <div class="lbl">days used in the current 180-day window</div>
         <div class="bar"><div id="winBar" style="width:0%"></div></div>
       </div>
@@ -577,7 +579,7 @@ function renderStats(){
   const used = usedInWindow(set, today);
   const remain = Math.max(0, LIMIT - used);
   const winEl = document.getElementById("stWin");
-  winEl.innerHTML = used + '<span style="font-size:1.1rem;color:var(--muted);margin-left:4px">/ 90</span>';
+  winEl.innerHTML = '<span>' + used + '</span><span style="font-size:1.1rem;color:var(--muted)">/ 90</span>';
   winEl.className = "num " + (used >= 90 ? "bad" : used >= 70 ? "warn" : "");
   const bar = document.getElementById("winBar");
   bar.style.width = Math.min(100, used/LIMIT*100) + "%";
@@ -856,6 +858,14 @@ function renderSchengenShare(){
 
 /* ---------- init ---------- */
 function refresh(){ renderStats(); renderCalendar(); renderTrips(); renderDistribution(); renderSchengenShare(); animateCharts(); }
+/* date-of-birth field: digits only, slashes auto-inserted (mobile friendly) */
+document.getElementById("regDob").addEventListener("input", e => {
+  const d = e.target.value.replace(/\D/g, "").slice(0, 8);
+  e.target.value = d.length > 4 ? d.slice(0,2) + "/" + d.slice(2,4) + "/" + d.slice(4)
+                 : d.length > 2 ? d.slice(0,2) + "/" + d.slice(2)
+                 : d;
+});
+
 document.getElementById("planDate").value = iso(todayNum());
 updateToggle();
 updateCalToggle();
