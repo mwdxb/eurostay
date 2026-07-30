@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EuroStay — Tuyen's Schengen Portal</title>
+<style>
+  :root{
+    --blue:#003399; --blue-light:#1a56db; --gold:#ffcc00;
+    --bg:#f4f6fb; --card:#ffffff; --text:#1e2433; --muted:#6b7280;
+    --stay:#2563eb; --plan:#059669; --danger:#dc2626; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;}
+  header{background:var(--blue); color:#fff; padding:26px 20px;
+    border-bottom:5px solid var(--gold);}
+  .hdr-inner{max-width:1100px; margin:0 auto; display:flex; align-items:center; gap:22px;}
+  .hdr-inner svg{width:96px; height:64px; flex-shrink:0;
+    box-shadow:0 1px 5px rgba(0,0,0,.35); border-radius:3px;}
+  .hdr-text h1{font-size:1.75rem; letter-spacing:.4px; line-height:1.2;}
+  .hdr-text .subtitle{font-size:.95rem; opacity:.92; margin-top:2px;
+    text-transform:uppercase; letter-spacing:1.5px; font-weight:600; color:var(--gold);}
+  .hdr-text .legal{font-size:.78rem; opacity:.75; margin-top:6px; max-width:640px;}
+  @media(max-width:600px){ .hdr-inner{flex-direction:column; text-align:center;}
+    .hdr-text .legal{display:none;} }
+  main{max-width:1100px; margin:0 auto; padding:20px;}
+  section{background:var(--card); border-radius:14px; padding:22px;
+    margin-bottom:22px; box-shadow:0 1px 4px rgba(0,0,0,.07);}
+  h2{font-size:1.15rem; color:var(--blue); margin-bottom:14px;}
+
+  /* Stats */
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px;}
+  .stat{border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center;}
+  .stat .num{font-size:2.1rem; font-weight:700; color:var(--blue);}
+  .stat .num.ok{color:var(--plan);}
+  .stat .num.warn{color:#d97706;}
+  .stat .num.bad{color:var(--danger);}
+  .stat .lbl{font-size:.83rem; color:var(--muted); margin-top:2px;}
+  .stat .sub{font-size:.78rem; color:var(--muted); margin-top:6px;}
+  .bar{height:8px; background:#e8ecf5; border-radius:4px; margin-top:10px; overflow:hidden;}
+  .bar>div{height:100%; border-radius:4px; background:var(--stay); transition:width .4s;}
+  .bar>div.warn{background:#d97706;} .bar>div.bad{background:var(--danger);}
+
+  /* Planner */
+  .planner-row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;}
+  label{display:block; font-size:.82rem; color:var(--muted); margin-bottom:4px;}
+  input[type=date], input[type=text]{padding:9px 12px; border:1px solid var(--border);
+    border-radius:8px; font-size:.95rem; background:#fff; color:var(--text);}
+  button{background:var(--blue); color:#fff; border:none; border-radius:8px;
+    padding:10px 18px; font-size:.95rem; cursor:pointer; font-weight:600;}
+  button:hover{background:var(--blue-light);}
+  button.secondary{background:#eef1f8; color:var(--blue);}
+  button.secondary:hover{background:#dfe5f3;}
+  button.danger-btn{background:none; color:var(--danger); padding:4px 8px; font-size:1rem;}
+  .result{margin-top:16px; padding:16px; border-radius:10px; background:#eefaf3;
+    border:1px solid #b7e4c7; display:none;}
+  .result.negative{background:#fdf0ef; border-color:#f5c6c3;}
+  .result .big{font-size:1.25rem; font-weight:700;}
+  .result .detail{font-size:.9rem; color:#374151; margin-top:6px;}
+
+  /* Calendar */
+  .cal-nav{display:flex; align-items:center; gap:14px; margin-bottom:14px;}
+  .cal-nav span{font-weight:700; font-size:1.1rem; min-width:60px; text-align:center;}
+  .months{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px;}
+  .month{border:1px solid var(--border); border-radius:10px; padding:10px;}
+  .month h3{font-size:.9rem; text-align:center; margin-bottom:6px; color:var(--blue);}
+  .grid7{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; font-size:.72rem; text-align:center;}
+  .dow{color:var(--muted); font-weight:600;}
+  .day{padding:3px 0; border-radius:5px;}
+  .day.stay{background:var(--stay); color:#fff; font-weight:600;}
+  .day.plan{background:var(--plan); color:#fff; font-weight:600;}
+  .day.today{outline:2px solid var(--gold); outline-offset:-2px; font-weight:700;}
+  .day.avail{color:#fff; cursor:default; display:flex; flex-direction:column;
+    align-items:center; line-height:1.15; padding:2px 0;}
+  .day.avail .dt{font-size:.55rem; opacity:.85; font-weight:400;}
+  .day.avail .vv{font-size:.68rem; font-weight:700;}
+  .day.a3{background:#059669;} .day.a2{background:#84cc16;}
+  .day.a1{background:#f59e0b;} .day.a0{background:#dc2626;}
+  .legend{display:flex; gap:18px; margin-top:12px; font-size:.8rem; color:var(--muted); flex-wrap:wrap;}
+  .legend i{display:inline-block; width:13px; height:13px; border-radius:4px; vertical-align:-2px; margin-right:5px;}
+
+  /* Distribution stats */
+  .stats2-grid{display:grid; grid-template-columns:1fr 200px; gap:26px; align-items:center;}
+  @media(max-width:640px){ .stats2-grid{grid-template-columns:1fr; justify-items:center;} }
+  .cbar-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+  .cbar-name{width:135px; font-size:.87rem; font-weight:600; text-align:right;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cbar-name .flag{font-size:1.05rem; vertical-align:-1px;}
+  .cbar-track{flex:1; height:15px; background:#e8ecf5; border-radius:8px; overflow:hidden;}
+  .cbar-fill{height:100%; border-radius:8px; width:0; transition:width .9s ease;}
+  .cbar-val{width:110px; font-size:.78rem; color:var(--muted);}
+  .donut-wrap{position:relative; width:180px; height:180px;}
+  .donut-center{position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; pointer-events:none;}
+  .donut-center .pct{font-size:1.5rem; font-weight:700; color:var(--blue);}
+  .donut-center .who{font-size:.72rem; color:var(--muted); max-width:95px;}
+  .subhead{font-size:1rem; color:var(--blue); margin:24px 0 14px; font-weight:700;
+    border-top:1px solid var(--border); padding-top:20px;}
+  .leg-row{display:flex; align-items:center; gap:8px; font-size:.9rem; margin-bottom:8px;}
+  .leg-row i{width:14px; height:14px; border-radius:4px; flex-shrink:0;}
+  .toggle{display:inline-flex; background:#eef1f8; border-radius:8px; padding:3px;}
+  .toggle button{background:none; color:var(--muted); padding:6px 14px; font-size:.8rem;
+    border-radius:6px; font-weight:600;}
+  .toggle button:hover{background:#dfe5f3; color:var(--blue);}
+  .toggle button.active, .toggle button.active:hover{background:var(--blue); color:#fff;}
+
+  /* Trips */
+  .trip-form{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;}
+  table{width:100%; border-collapse:collapse; font-size:.92rem;}
+  th{text-align:left; color:var(--muted); font-size:.8rem; text-transform:uppercase;
+    letter-spacing:.4px; padding:8px 10px; border-bottom:2px solid var(--border);}
+  td{padding:9px 10px; border-bottom:1px solid var(--border);}
+  .empty{color:var(--muted); font-style:italic; padding:14px 0;}
+  .io-row{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;}
+  footer{max-width:1100px; margin:0 auto; padding:0 20px 30px; font-size:.78rem; color:var(--muted);}
+  @media(max-width:600px){ header h1{font-size:1.4rem;} section{padding:16px;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-inner">
+    <!-- Flag of Europe (official geometry: 2:3, 12 gold stars, circle r = 1/3 height) -->
+    <svg viewBox="0 0 810 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flag of Europe">
+      <rect width="810" height="540" fill="#003399"/>
+      <defs>
+        <polygon id="eustar" fill="#FFCC00" points="0,-60 13.52,-18.61 57.06,-18.54 21.87,7.11 35.27,48.54 0,23 -35.27,48.54 -21.87,7.11 -57.06,-18.54 -13.52,-18.61"/>
+      </defs>
+      <use href="#eustar" x="405" y="90"/>
+      <use href="#eustar" x="495" y="114.12"/>
+      <use href="#eustar" x="560.88" y="180"/>
+      <use href="#eustar" x="585" y="270"/>
+      <use href="#eustar" x="560.88" y="360"/>
+      <use href="#eustar" x="495" y="425.88"/>
+      <use href="#eustar" x="405" y="450"/>
+      <use href="#eustar" x="315" y="425.88"/>
+      <use href="#eustar" x="249.12" y="360"/>
+      <use href="#eustar" x="225" y="270"/>
+      <use href="#eustar" x="249.12" y="180"/>
+      <use href="#eustar" x="315" y="114.12"/>
+    </svg>
+    <div class="hdr-text">
+      <div class="subtitle">Schengen Short-Stay Portal</div>
+      <h1>EuroStay — Tuyen Pham</h1>
+      <div class="legal">Stay calculation pursuant to Article 6(1) of Regulation (EU) 2016/399
+      (Schengen Borders Code): maximum stay of 90 days in any 180-day period.
+      Personal planning tool — not an official document of the European Union.</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- OVERVIEW -->
+  <section>
+    <h2>Overview <span id="asOf" style="font-weight:400;color:var(--muted);font-size:.85rem"></span></h2>
+    <div class="stats">
+      <div class="stat">
+        <div class="num" id="stYear">0</div>
+        <div class="lbl">days in Schengen since <span id="stYearLbl">Jan 1</span></div>
+      </div>
+      <div class="stat">
+        <div class="num" id="st365">0</div>
+        <div class="lbl">days within the last 365 days</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="stWin">0<span style="font-size:1.1rem;color:var(--muted)">/90</span></div>
+        <div class="lbl">days used in the current 180-day window</div>
+        <div class="bar"><div id="winBar" style="width:0%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="num ok" id="stRemain">90</div>
+        <div class="lbl">days available if entering today</div>
+        <div class="sub" id="stRemainSub"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLANNER -->
+  <section>
+    <h2>Trip planner — “If I arrive on this date, how long can I stay?”</h2>
+    <div class="planner-row">
+      <div>
+        <label for="planDate">Planned arrival date</label>
+        <input type="date" id="planDate">
+      </div>
+      <button onclick="runPlanner()">Calculate</button>
+      <button class="secondary" onclick="clearPlan()">Clear</button>
+    </div>
+    <div class="result" id="planResult"></div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">Calendar
+      <span class="toggle">
+        <button type="button" id="cmTrips" onclick="setCalMode('trips')">My trips</button>
+        <button type="button" id="cmAvail" onclick="setCalMode('avail')">Days I can stay</button>
+      </span>
+    </h2>
+    <div class="cal-nav">
+      <button class="secondary" onclick="changeYear(-1)">‹</button>
+      <span id="calYear"></span>
+      <button class="secondary" onclick="changeYear(1)">›</button>
+    </div>
+    <div class="months" id="months"></div>
+    <div class="legend" id="legTrips">
+      <span><i style="background:var(--stay)"></i>Days in Schengen</span>
+      <span><i style="background:var(--plan)"></i>Planned trip (from planner)</span>
+      <span><i style="background:#fff;border:2px solid var(--gold)"></i>Today</span>
+    </div>
+    <div class="legend" id="legAvail" style="display:none">
+      <span><i style="background:#059669"></i>61–90 days</span>
+      <span><i style="background:#84cc16"></i>31–60 days</span>
+      <span><i style="background:#f59e0b"></i>1–30 days</span>
+      <span><i style="background:#dc2626"></i>0 — entry not possible</span>
+      <span style="flex-basis:100%">Each number = how many consecutive days Tuyen could stay if she <strong>enters Schengen on that day</strong> (hover a day for details).</span>
+    </div>
+  </section>
+
+  <!-- TRIPS -->
+  <section>
+    <h2>My trips</h2>
+    <div class="trip-form">
+      <div>
+        <label for="tEntry">Entry date</label>
+        <input type="date" id="tEntry">
+      </div>
+      <div>
+        <label for="tExit">Exit date</label>
+        <input type="date" id="tExit">
+      </div>
+      <div style="flex:1;min-width:160px">
+        <label for="tNote">Country (used for statistics)</label>
+        <input type="text" id="tNote" placeholder="e.g. Germany" style="width:100%">
+      </div>
+      <button onclick="addTrip()">Add trip</button>
+    </div>
+    <div id="tripList"></div>
+    <div class="io-row">
+      <button class="secondary" onclick="exportData()">⬇ Backup trips (JSON)</button>
+      <button class="secondary" onclick="document.getElementById('importFile').click()">⬆ Restore backup</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </section>
+
+  <!-- STATISTICS -->
+  <section>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">Statistics
+      <span class="toggle">
+        <button type="button" id="tgYear" onclick="setStatsMode('year')">Since Jan 1</button>
+        <button type="button" id="tg365" onclick="setStatsMode('365')">Last 365 days</button>
+      </span>
+    </h2>
+    <div class="stats2-grid">
+      <div id="countryBars"></div>
+      <div class="donut-wrap">
+        <div id="countryDonut"></div>
+        <div class="donut-center" id="countryCenter"></div>
+      </div>
+    </div>
+    <div class="subhead">Inside vs outside Schengen — <span id="shLabel"></span></div>
+    <div class="stats2-grid">
+      <div id="schengenLegend"></div>
+      <div class="donut-wrap">
+        <div id="schengenDonut"></div>
+        <div class="donut-center" id="schengenCenter"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p><strong>How the rule works:</strong> As a visa holder for short stays, Tuyen may spend at most
+  <strong>90 days within any rolling 180-day period</strong> in the entire Schengen area combined.
+  Both the day of entry and the day of exit count as full days of stay. The 3-year multi-entry visa
+  allows repeated entries, but never more than 90/180. This tool is a planning aid, not legal advice —
+  always verify with the official EU short-stay calculator before travelling.</p>
+  <p style="margin-top:6px">Trips are stored in this browser. Use “Backup trips” regularly to keep a copy,
+  and “Restore backup” after switching devices or browsers.</p>
+</footer>
+
+<script>
+"use strict";
+const MS = 86400000, LIMIT = 90, WINDOW = 180, KEY = "eurostay_tuyen_trips";
+
+/* ---------- date helpers (all UTC-based day numbers) ---------- */
+function dnum(iso){ const [y,m,d] = iso.split("-").map(Number); return Math.floor(Date.UTC(y, m-1, d)/MS); }
+function iso(n){ return new Date(n*MS).toISOString().slice(0,10); }
+function fmt(n){ return new Date(n*MS).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}); }
+function todayNum(){ const t = new Date(); return Math.floor(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())/MS); }
+
+/* ---------- data ---------- */
+function loadTrips(){ try { const t = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(t) ? t : []; } catch(e){ return []; } }
+function saveTrips(t){ localStorage.setItem(KEY, JSON.stringify(t)); }
+let trips = loadTrips();
+let calYear = new Date().getFullYear();
+let plannedRange = null; // {start,end} day numbers
+
+/* set of all day-numbers spent in Schengen (entry & exit inclusive) */
+function staySet(){
+  const s = new Set();
+  for (const t of trips){
+    const a = dnum(t.entry), b = dnum(t.exit);
+    for (let d = a; d <= b; d++) s.add(d);
+  }
+  return s;
+}
+
+/* days present in the 180-day window ending on `end` (inclusive) */
+function usedInWindow(set, end){
+  let c = 0;
+  for (let d = end - (WINDOW-1); d <= end; d++) if (set.has(d)) c++;
+  return c;
+}
+
+/* max consecutive stay starting at `arrival`, given existing stays */
+function maxStay(set, arrival){
+  const s = new Set(set);
+  let days = 0;
+  for (let i = 0; i < 200; i++){
+    const d = arrival + i;
+    s.add(d);
+    if (usedInWindow(s, d) > LIMIT) break;
+    days = i + 1;
+  }
+  return days;
+}
+
+/* first day >= from on which at least 1 day of stay is possible */
+function nextPossibleEntry(set, from){
+  for (let d = from; d < from + 400; d++){
+    if (maxStay(set, d) > 0) return d;
+  }
+  return null;
+}
+
+/* ---------- overview ---------- */
+function countRange(set, a, b){ let c = 0; for (let d = a; d <= b; d++) if (set.has(d)) c++; return c; }
+
+function renderStats(){
+  const set = staySet(), today = todayNum();
+  const y = new Date().getFullYear();
+  const jan1 = dnum(y + "-01-01");
+
+  document.getElementById("asOf").textContent = "· as of " + fmt(today);
+  document.getElementById("stYearLbl").textContent = "Jan 1, " + y;
+  document.getElementById("stYear").textContent = countRange(set, jan1, today);
+  document.getElementById("st365").textContent = countRange(set, today-364, today);
+
+  const used = usedInWindow(set, today);
+  const remain = Math.max(0, LIMIT - used);
+  const winEl = document.getElementById("stWin");
+  winEl.innerHTML = used + '<span style="font-size:1.1rem;color:var(--muted)">/90</span>';
+  winEl.className = "num " + (used >= 90 ? "bad" : used >= 70 ? "warn" : "");
+  const bar = document.getElementById("winBar");
+  bar.style.width = Math.min(100, used/LIMIT*100) + "%";
+  bar.className = used >= 90 ? "bad" : used >= 70 ? "warn" : "";
+
+  const remEl = document.getElementById("stRemain");
+  remEl.textContent = remain;
+  remEl.className = "num " + (remain === 0 ? "bad" : remain <= 20 ? "warn" : "ok");
+  const sub = document.getElementById("stRemainSub");
+  if (remain === 0){
+    const nxt = nextPossibleEntry(set, today + 1);
+    sub.textContent = nxt ? "Next possible entry: " + fmt(nxt) : "";
+  } else {
+    const ms = maxStay(set, today);
+    sub.textContent = "Entering today, max continuous stay: " + ms + " day" + (ms === 1 ? "" : "s");
+  }
+}
+
+/* ---------- planner ---------- */
+function runPlanner(){
+  const v = document.getElementById("planDate").value;
+  const box = document.getElementById("planResult");
+  if (!v){ alert("Please pick an arrival date."); return; }
+  const arrival = dnum(v), set = staySet();
+  const days = maxStay(set, arrival);
+  box.style.display = "block";
+  if (days === 0){
+    const nxt = nextPossibleEntry(set, arrival + 1);
+    box.className = "result negative";
+    box.innerHTML = '<div class="big">✕ Entry on ' + fmt(arrival) + ' is not possible</div>' +
+      '<div class="detail">The 90-day allowance is already used up in that 180-day window.' +
+      (nxt ? '<br>Earliest possible entry: <strong>' + fmt(nxt) + '</strong> (max stay then: ' + maxStay(set, nxt) + ' days)' : '') + '</div>';
+    plannedRange = null;
+  } else {
+    const lastDay = arrival + days - 1;
+    box.className = "result";
+    box.innerHTML = '<div class="big">✓ Arriving ' + fmt(arrival) + ', Tuyen can stay up to <u>' + days + ' days</u></div>' +
+      '<div class="detail">Latest day to leave (inclusive): <strong>' + fmt(lastDay) + '</strong>.<br>' +
+      'Both arrival and departure days count as days of stay. The planned trip is shown in green on the calendar.</div>';
+    plannedRange = { start: arrival, end: lastDay };
+    calYear = new Date(arrival*MS).getUTCFullYear();
+  }
+  renderCalendar();
+}
+function clearPlan(){
+  plannedRange = null;
+  document.getElementById("planResult").style.display = "none";
+  document.getElementById("planDate").value = "";
+  renderCalendar();
+}
+
+/* ---------- calendar ---------- */
+let calMode = localStorage.getItem("eurostay_cal_mode") || "trips";
+function changeYear(d){ calYear += d; renderCalendar(); }
+function setCalMode(m){
+  calMode = m;
+  localStorage.setItem("eurostay_cal_mode", m);
+  updateCalToggle(); renderCalendar();
+}
+function updateCalToggle(){
+  document.getElementById("cmTrips").className = calMode === "trips" ? "active" : "";
+  document.getElementById("cmAvail").className = calMode === "avail" ? "active" : "";
+  document.getElementById("legTrips").style.display = calMode === "trips" ? "flex" : "none";
+  document.getElementById("legAvail").style.display = calMode === "avail" ? "flex" : "none";
+}
+function availClass(v){ return v === 0 ? "a0" : v <= 30 ? "a1" : v <= 60 ? "a2" : "a3"; }
+
+function renderCalendar(){
+  const set = staySet(), today = todayNum();
+  document.getElementById("calYear").textContent = calYear;
+  const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const dows = ["Mo","Tu","We","Th","Fr","Sa","Su"];
+  let html = "";
+  for (let m = 0; m < 12; m++){
+    const first = new Date(Date.UTC(calYear, m, 1));
+    const offset = (first.getUTCDay() + 6) % 7;
+    const dim = new Date(Date.UTC(calYear, m+1, 0)).getUTCDate();
+    html += '<div class="month"><h3>' + names[m] + '</h3><div class="grid7">';
+    html += dows.map(d => '<span class="dow">' + d + '</span>').join("");
+    html += '<span></span>'.repeat(offset);
+    for (let d = 1; d <= dim; d++){
+      const n = Math.floor(Date.UTC(calYear, m, d)/MS);
+      if (calMode === "avail"){
+        const v = maxStay(set, n);
+        let cls = "day avail " + availClass(v);
+        if (n === today) cls += " today";
+        html += '<span class="' + cls + '" title="Entering ' + fmt(n) + ': max stay ' + v + ' day' + (v === 1 ? "" : "s") + '">' +
+          '<span class="dt">' + d + '</span><span class="vv">' + v + '</span></span>';
+      } else {
+        let cls = "day";
+        if (set.has(n)) cls += " stay";
+        else if (plannedRange && n >= plannedRange.start && n <= plannedRange.end) cls += " plan";
+        if (n === today) cls += " today";
+        html += '<span class="' + cls + '">' + d + '</span>';
+      }
+    }
+    html += '</div></div>';
+  }
+  document.getElementById("months").innerHTML = html;
+}
+
+/* ---------- trips ---------- */
+function addTrip(){
+  const e = document.getElementById("tEntry").value;
+  const x = document.getElementById("tExit").value;
+  const note = document.getElementById("tNote").value.trim();
+  if (!e || !x){ alert("Please fill in entry and exit dates."); return; }
+  if (dnum(x) < dnum(e)){ alert("Exit date must be on or after the entry date."); return; }
+  if (dnum(x) - dnum(e) + 1 > 90 && !confirm("This trip is longer than 90 days — that would exceed the Schengen limit. Add anyway?")) return;
+  trips.push({ id: Date.now(), entry: e, exit: x, note });
+  saveTrips(trips);
+  document.getElementById("tEntry").value = "";
+  document.getElementById("tExit").value = "";
+  document.getElementById("tNote").value = "";
+  refresh();
+}
+function deleteTrip(id){
+  if (!confirm("Delete this trip?")) return;
+  trips = trips.filter(t => t.id !== id);
+  saveTrips(trips);
+  refresh();
+}
+function renderTrips(){
+  const el = document.getElementById("tripList");
+  if (!trips.length){ el.innerHTML = '<div class="empty">No trips yet — add Tuyen’s past and future Schengen trips above.</div>'; return; }
+  const sorted = [...trips].sort((a,b) => dnum(b.entry) - dnum(a.entry));
+  let rows = sorted.map(t => {
+    const days = dnum(t.exit) - dnum(t.entry) + 1;
+    return '<tr><td>' + fmt(dnum(t.entry)) + '</td><td>' + fmt(dnum(t.exit)) + '</td>' +
+      '<td><strong>' + days + '</strong></td><td>' + (t.note ? t.note.replace(/</g,"&lt;") : "—") + '</td>' +
+      '<td><button class="danger-btn" onclick="deleteTrip(' + t.id + ')" title="Delete">🗑</button></td></tr>';
+  }).join("");
+  el.innerHTML = '<table><thead><tr><th>Entry</th><th>Exit</th><th>Days</th><th>Note</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+/* ---------- statistics ---------- */
+const PALETTE = ["#2563eb","#059669","#d97706","#dc2626","#7c3aed","#0891b2","#db2777","#65a30d","#475569"];
+function esc(s){ return String(s).replace(/</g,"&lt;"); }
+
+let statsMode = localStorage.getItem("eurostay_stats_mode") || "365";
+function statsRange(){
+  const today = todayNum();
+  if (statsMode === "year") return [dnum(new Date().getFullYear() + "-01-01"), today];
+  return [today - 364, today];
+}
+function statsLabel(){
+  return statsMode === "year" ? "since Jan 1, " + new Date().getFullYear() : "last 365 days";
+}
+function setStatsMode(m){
+  statsMode = m;
+  localStorage.setItem("eurostay_stats_mode", m);
+  updateToggle(); renderDistribution(); renderSchengenShare(); animateCharts();
+}
+function updateToggle(){
+  document.getElementById("tgYear").className = statsMode === "year" ? "active" : "";
+  document.getElementById("tg365").className = statsMode === "365" ? "active" : "";
+  document.getElementById("shLabel").textContent = statsLabel();
+}
+
+function countryStats(a, b){
+  const map = new Map();
+  for (const t of trips){
+    const days = Math.max(0, Math.min(dnum(t.exit), b) - Math.max(dnum(t.entry), a) + 1);
+    if (!days) continue;
+    const name = (t.note || "").trim() || "Not specified";
+    const k = name.toLowerCase();
+    if (!map.has(k)) map.set(k, { name, days: 0 });
+    map.get(k).days += days;
+  }
+  return [...map.values()].sort((a2,b2) => b2.days - a2.days);
+}
+function segColor(name, i){ return name === "Not specified" ? "#94a3b8" : PALETTE[i % PALETTE.length]; }
+
+/* country name -> ISO code (Schengen countries + common aliases) */
+const ISO = {
+  "austria":"AT","österreich":"AT","oesterreich":"AT",
+  "belgium":"BE","belgien":"BE",
+  "bulgaria":"BG","bulgarien":"BG",
+  "croatia":"HR","kroatien":"HR",
+  "czech republic":"CZ","czechia":"CZ","tschechien":"CZ",
+  "denmark":"DK","dänemark":"DK",
+  "estonia":"EE","estland":"EE",
+  "finland":"FI","finnland":"FI",
+  "france":"FR","frankreich":"FR",
+  "germany":"DE","deutschland":"DE",
+  "greece":"GR","griechenland":"GR",
+  "hungary":"HU","ungarn":"HU",
+  "iceland":"IS","island":"IS",
+  "italy":"IT","italien":"IT",
+  "latvia":"LV","lettland":"LV",
+  "liechtenstein":"LI",
+  "lithuania":"LT","litauen":"LT",
+  "luxembourg":"LU","luxemburg":"LU",
+  "malta":"MT",
+  "netherlands":"NL","the netherlands":"NL","holland":"NL","niederlande":"NL",
+  "norway":"NO","norwegen":"NO",
+  "poland":"PL","polen":"PL",
+  "portugal":"PT",
+  "romania":"RO","rumänien":"RO",
+  "slovakia":"SK","slowakei":"SK",
+  "slovenia":"SI","slowenien":"SI",
+  "spain":"ES","spanien":"ES",
+  "sweden":"SE","schweden":"SE",
+  "switzerland":"CH","schweiz":"CH"
+};
+function flagFor(name){
+  const code = ISO[name.trim().toLowerCase()];
+  if (!code) return "";
+  return String.fromCodePoint(...[...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
+function donutSVG(segs){
+  const C = 2 * Math.PI * 54;
+  let off = 0, circles = "";
+  for (const s of segs){
+    if (s.frac <= 0) continue;
+    const len = s.frac * C;
+    circles += '<circle class="seg" cx="70" cy="70" r="54" fill="none" stroke="' + s.color +
+      '" stroke-width="18" stroke-dasharray="0 ' + C + '" data-dash="' + len + ' ' + (C - len) +
+      '" stroke-dashoffset="' + (-off) + '" transform="rotate(-90 70 70)"/>';
+    off += len;
+  }
+  return '<svg viewBox="0 0 140 140" width="180" height="180">' +
+    '<circle cx="70" cy="70" r="54" fill="none" stroke="#e8ecf5" stroke-width="18"/>' + circles + '</svg>';
+}
+function animateCharts(){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll(".seg").forEach(c => {
+      c.style.transition = "stroke-dasharray 1s ease";
+      c.setAttribute("stroke-dasharray", c.dataset.dash);
+    });
+    document.querySelectorAll(".cbar-fill").forEach(b => { b.style.width = b.dataset.w + "%"; });
+  }));
+}
+
+function renderDistribution(){
+  const bars = document.getElementById("countryBars"),
+        donut = document.getElementById("countryDonut"),
+        center = document.getElementById("countryCenter");
+  const [a, b] = statsRange();
+  const cs = countryStats(a, b);
+  if (!cs.length){
+    bars.innerHTML = '<div class="empty">No Schengen days in this period (' + statsLabel() + ').</div>';
+    donut.innerHTML = ""; center.innerHTML = ""; return;
+  }
+  const total = cs.reduce((a,c) => a + c.days, 0), maxD = cs[0].days;
+  bars.innerHTML = cs.map((c,i) => {
+    const col = segColor(c.name, i), pct = Math.round(c.days/total*100);
+    const fl = flagFor(c.name);
+    return '<div class="cbar-row"><div class="cbar-name" title="' + esc(c.name) + '">' +
+      (fl ? '<span class="flag">' + fl + '</span> ' : '') + esc(c.name) + '</div>' +
+      '<div class="cbar-track"><div class="cbar-fill" style="background:' + col + '" data-w="' + (c.days/maxD*100) + '"></div></div>' +
+      '<div class="cbar-val">' + c.days + ' day' + (c.days === 1 ? "" : "s") + ' · ' + pct + '%</div></div>';
+  }).join("");
+  donut.innerHTML = donutSVG(cs.map((c,i) => ({ frac: c.days/total, color: segColor(c.name, i) })));
+  const topFl = flagFor(cs[0].name);
+  center.innerHTML = (topFl ? '<div style="font-size:1.4rem;line-height:1">' + topFl + '</div>' : '') +
+    '<div class="pct">' + Math.round(cs[0].days/total*100) + '%</div><div class="who">' + esc(cs[0].name) + '</div>';
+}
+
+function renderSchengenShare(){
+  const set = staySet();
+  const [a, b] = statsRange();
+  const totalDays = b - a + 1;
+  const inS = countRange(set, a, b), out = totalDays - inS;
+  const pct = Math.round(inS/totalDays*100);
+  document.getElementById("schengenLegend").innerHTML =
+    '<div class="leg-row"><i style="background:var(--stay)"></i>Inside Schengen:&nbsp;<strong>' + inS + ' days</strong>&nbsp;(' + pct + '%)</div>' +
+    '<div class="leg-row"><i style="background:#cbd5e1"></i>Outside Schengen:&nbsp;<strong>' + out + ' days</strong>&nbsp;(' + (100 - pct) + '%)</div>' +
+    '<div style="font-size:.78rem;color:var(--muted);margin-top:6px">Share of the ' + totalDays + ' days ' + statsLabel() + ' spent inside the Schengen area.</div>';
+  document.getElementById("schengenDonut").innerHTML = donutSVG([{ frac: inS/totalDays, color: "#2563eb" }, { frac: out/totalDays, color: "#cbd5e1" }]);
+  document.getElementById("schengenCenter").innerHTML = '<div class="pct">' + pct + '%</div><div class="who">in Schengen</div>';
+}
+
+/* ---------- backup / restore ---------- */
+function exportData(){
+  const blob = new Blob([JSON.stringify({ app:"EuroStay", exported: new Date().toISOString(), trips }, null, 2)], { type:"application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "eurostay-backup-" + iso(todayNum()) + ".json";
+  a.click();
+}
+function importData(ev){
+  const f = ev.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(r.result);
+      const arr = Array.isArray(data) ? data : data.trips;
+      if (!Array.isArray(arr)) throw new Error("bad format");
+      trips = arr.filter(t => t.entry && t.exit).map(t => ({ id: t.id || Date.now()+Math.random(), entry: t.entry, exit: t.exit, note: t.note || "" }));
+      saveTrips(trips);
+      refresh();
+      alert("Backup restored: " + trips.length + " trips loaded.");
+    } catch(e){ alert("Could not read this file — is it an EuroStay backup?"); }
+  };
+  r.readAsText(f);
+  ev.target.value = "";
+}
+
+/* ---------- init ---------- */
+function refresh(){ renderStats(); renderCalendar(); renderTrips(); renderDistribution(); renderSchengenShare(); animateCharts(); }
+document.getElementById("planDate").value = iso(todayNum());
+updateToggle();
+updateCalToggle();
+refresh();
+</script>
+</body>
+</html>
