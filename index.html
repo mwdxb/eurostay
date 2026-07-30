@@ -57,6 +57,9 @@
   .login-card button{width:100%;}
   .name-row{display:flex; gap:8px;}
   .name-row input{min-width:0;}
+  .dob-row{display:flex; gap:8px;}
+  .dob-row input{min-width:0; flex:1; text-align:center;}
+  .dob-row input:last-child{flex:1.6;}
   .fld-lbl{display:block; text-align:left; font-size:.75rem; color:var(--muted); margin:0 0 3px 2px;}
   .switch-line{margin-top:14px; font-size:.85rem; color:var(--muted);}
   .lnk{color:var(--blue); cursor:pointer; text-decoration:underline; font-weight:600;}
@@ -255,8 +258,12 @@
         <input type="text" id="regFirst" placeholder="First name">
         <input type="text" id="regLast" placeholder="Last name">
       </div>
-      <label class="fld-lbl" for="regDob">Date of birth</label>
-      <input type="text" id="regDob" placeholder="DD/MM/YYYY" inputmode="numeric" maxlength="10" autocomplete="bday">
+      <label class="fld-lbl">Date of birth</label>
+      <div class="dob-row">
+        <input type="text" id="regDobD" placeholder="DD" inputmode="numeric" maxlength="2">
+        <input type="text" id="regDobM" placeholder="MM" inputmode="numeric" maxlength="2">
+        <input type="text" id="regDobY" placeholder="YYYY" inputmode="numeric" maxlength="4">
+      </div>
       <input type="text" id="regRes" placeholder="Residence (city, country)">
       <label class="fld-lbl" for="regVisa">Schengen visa type</label>
       <select id="regVisa">
@@ -462,15 +469,15 @@ async function signIn(){
 }
 async function signUp(){
   const v = id => document.getElementById(id).value;
-  const first = v("regFirst").trim(), last = v("regLast").trim(), dob = v("regDob"),
+  const first = v("regFirst").trim(), last = v("regLast").trim(),
+        dd = v("regDobD").trim(), mm = v("regDobM").trim(), yy = v("regDobY").trim(),
         res = v("regRes").trim(), visa = v("regVisa"), email = v("regEmail").trim(),
         p1 = v("regPass"), p2 = v("regPass2");
   const msg = document.getElementById("regMsg");
   if (!first || !last){ msg.textContent = "Please enter your first and last name."; return; }
-  const dm = dob.trim().match(/^(\d{1,2})[./\-](\d{1,2})[./\-](\d{4})$/);
-  const dobIso = dm && +dm[1] >= 1 && +dm[1] <= 31 && +dm[2] >= 1 && +dm[2] <= 12
-    ? dm[3] + "-" + dm[2].padStart(2,"0") + "-" + dm[1].padStart(2,"0") : null;
-  if (!dobIso){ msg.textContent = "Please enter your date of birth as DD/MM/YYYY."; return; }
+  const dobIso = +dd >= 1 && +dd <= 31 && +mm >= 1 && +mm <= 12 && yy.length === 4
+    ? yy + "-" + mm.padStart(2,"0") + "-" + dd.padStart(2,"0") : null;
+  if (!dobIso){ msg.textContent = "Please enter your date of birth (day, month, year)."; return; }
   if (!res){ msg.textContent = "Please enter your place of residence."; return; }
   if (!email.includes("@")){ msg.textContent = "Please enter a valid email address."; return; }
   if (p1.length < 8){ msg.textContent = "Password must have at least 8 characters."; return; }
@@ -858,12 +865,14 @@ function renderSchengenShare(){
 
 /* ---------- init ---------- */
 function refresh(){ renderStats(); renderCalendar(); renderTrips(); renderDistribution(); renderSchengenShare(); animateCharts(); }
-/* date-of-birth field: digits only, slashes auto-inserted (mobile friendly) */
-document.getElementById("regDob").addEventListener("input", e => {
-  const d = e.target.value.replace(/\D/g, "").slice(0, 8);
-  e.target.value = d.length > 4 ? d.slice(0,2) + "/" + d.slice(2,4) + "/" + d.slice(4)
-                 : d.length > 2 ? d.slice(0,2) + "/" + d.slice(2)
-                 : d;
+/* date-of-birth: three boxes, digits only, cursor advances automatically */
+["regDobD","regDobM","regDobY"].forEach((id, i, arr) => {
+  const el = document.getElementById(id);
+  el.addEventListener("input", () => {
+    el.value = el.value.replace(/\D/g, "");
+    if (el.value.length >= el.maxLength && i < arr.length - 1)
+      document.getElementById(arr[i+1]).focus();
+  });
 });
 
 document.getElementById("planDate").value = iso(todayNum());
