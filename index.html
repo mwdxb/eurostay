@@ -211,7 +211,7 @@
         <input type="text" id="regLast" placeholder="Last name">
       </div>
       <label class="fld-lbl" for="regDob">Date of birth</label>
-      <input type="date" id="regDob">
+      <input type="text" id="regDob" placeholder="DD/MM/YYYY" inputmode="numeric">
       <input type="text" id="regRes" placeholder="Residence (city, country)">
       <label class="fld-lbl" for="regVisa">Schengen visa type</label>
       <select id="regVisa">
@@ -422,7 +422,10 @@ async function signUp(){
         p1 = v("regPass"), p2 = v("regPass2");
   const msg = document.getElementById("regMsg");
   if (!first || !last){ msg.textContent = "Please enter your first and last name."; return; }
-  if (!dob){ msg.textContent = "Please enter your date of birth."; return; }
+  const dm = dob.trim().match(/^(\d{1,2})[./\-](\d{1,2})[./\-](\d{4})$/);
+  const dobIso = dm && +dm[1] >= 1 && +dm[1] <= 31 && +dm[2] >= 1 && +dm[2] <= 12
+    ? dm[3] + "-" + dm[2].padStart(2,"0") + "-" + dm[1].padStart(2,"0") : null;
+  if (!dobIso){ msg.textContent = "Please enter your date of birth as DD/MM/YYYY."; return; }
   if (!res){ msg.textContent = "Please enter your place of residence."; return; }
   if (!email.includes("@")){ msg.textContent = "Please enter a valid email address."; return; }
   if (p1.length < 8){ msg.textContent = "Password must have at least 8 characters."; return; }
@@ -430,7 +433,7 @@ async function signUp(){
   const b = document.getElementById("regBtn");
   b.disabled = true; b.textContent = "Creating account…"; msg.textContent = "";
   const { data, error } = await db.auth.signUp({ email, password: p1,
-    options: { data: { first_name: first, last_name: last, dob, residence: res, visa } } });
+    options: { data: { first_name: first, last_name: last, dob: dobIso, residence: res, visa } } });
   b.disabled = false; b.textContent = "Create account";
   if (error){
     msg.textContent = /already|registered/i.test(error.message)
