@@ -64,6 +64,31 @@
   .switch-line{margin-top:14px; font-size:.85rem; color:var(--muted);}
   .lnk{color:var(--blue); cursor:pointer; text-decoration:underline; font-weight:600;}
   #regMsg{margin-top:10px; font-size:.85rem; color:var(--danger); font-weight:600;}
+  #visaWarn{position:fixed; inset:0; background:rgba(6,16,54,.6); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:60;}
+  .warn-card{background:#fff; border-radius:16px; border-top:6px solid var(--danger);
+    padding:28px 26px; max-width:370px; width:92%; text-align:center;
+    box-shadow:0 10px 40px rgba(0,0,0,.35);}
+  .warn-card .warn-icon{font-size:2.4rem;}
+  .warn-card h2{color:var(--danger); margin:6px 0 10px; font-size:1.25rem;}
+  .warn-card p{font-size:.92rem; color:#374151; margin-bottom:18px;}
+  .profile-row strong.expiring{color:#ff8a80;}
+  /* calendar trip picking */
+  .months.pickable .day{cursor:pointer;}
+  .months.pickable .day:hover{outline:1px solid var(--blue-light); outline-offset:-1px;}
+  .day.pick-start{outline:2px solid var(--plan); outline-offset:-2px; font-weight:700;}
+  .day.win180{background:#ffe9a8; color:#7a5c00;}
+  .day.win180-stay{box-shadow:inset 0 0 0 2px #ffc233;}
+  .day.win-edge{outline:2px solid var(--danger); outline-offset:-2px; font-weight:700;}
+  #tripPop{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:45;
+    background:#fff; border-radius:14px; border:1px solid var(--border);
+    box-shadow:0 12px 40px rgba(0,0,0,.4); padding:16px 18px;
+    width:min(460px, 94vw); display:none;}
+  .tp-title{font-weight:700; color:var(--blue); margin-bottom:10px; font-size:.95rem;}
+  .tp-grid{display:flex; gap:10px; flex-wrap:wrap;}
+  .tp-grid > div{flex:1; min-width:150px;}
+  .tp-grid select, .tp-grid input{width:100%;}
+  .tp-btns{display:flex; gap:10px; justify-content:flex-end; margin-top:12px;}
   #loginMsg{margin-top:12px; font-size:.85rem; color:var(--danger); font-weight:600;}
   button:disabled, button:disabled:hover{opacity:.45; cursor:default; background:#eef1f8; color:var(--muted);}
   main{max-width:1100px; margin:0 auto; padding:20px;}
@@ -236,6 +261,7 @@
       <div class="profile-row"><span>Date of birth</span><strong id="pfDob">—</strong></div>
       <div class="profile-row"><span>Residence</span><strong id="pfRes">—</strong></div>
       <div class="profile-row"><span>Current visa</span><strong id="pfVisa">—</strong></div>
+      <div class="profile-row"><span>Visa expiry</span><strong id="pfExp">—</strong></div>
     </div>
   </div>
   <div id="userBar">
@@ -243,6 +269,33 @@
     <button onclick="signOut()">Sign out</button>
   </div>
 </header>
+
+<div id="tripPop">
+  <div class="tp-title" id="tpDates"></div>
+  <div class="tp-grid">
+    <div>
+      <label class="fld-lbl">Point of entry</label>
+      <select id="tpPoe"></select>
+    </div>
+    <div>
+      <label class="fld-lbl">Note (optional)</label>
+      <input type="text" id="tpNote" placeholder="e.g. Business trip to Darmstadt">
+    </div>
+  </div>
+  <div class="tp-btns">
+    <button class="secondary" onclick="popCancel()">Cancel</button>
+    <button id="tpSaveBtn" onclick="popSave()">Add trip</button>
+  </div>
+</div>
+
+<div id="visaWarn">
+  <div class="warn-card">
+    <div class="warn-icon">⚠️</div>
+    <h2>Visa expiry warning</h2>
+    <p id="visaWarnText"></p>
+    <button onclick="document.getElementById('visaWarn').style.display='none'">OK, understood</button>
+  </div>
+</div>
 
 <div id="loginOverlay">
   <div class="login-card">
@@ -276,6 +329,12 @@
         <option selected>3-year Multi-Entry</option>
         <option>5-year Multi-Entry</option>
       </select>
+      <label class="fld-lbl">Visa expiry date</label>
+      <div class="dob-row">
+        <input type="text" id="regExpD" placeholder="DD" inputmode="numeric" maxlength="2">
+        <input type="text" id="regExpM" placeholder="MM" inputmode="numeric" maxlength="2">
+        <input type="text" id="regExpY" placeholder="YYYY" inputmode="numeric" maxlength="4">
+      </div>
       <input type="email" id="regEmail" placeholder="Email address" autocomplete="email">
       <input type="password" id="regPass" placeholder="Password (min. 8 characters)" autocomplete="new-password">
       <input type="password" id="regPass2" placeholder="Repeat password" autocomplete="new-password">
@@ -343,8 +402,10 @@
     <div class="months" id="months"></div>
     <div class="legend" id="legTrips">
       <span><i style="background:var(--stay)"></i>Days in Schengen</span>
-      <span><i style="background:var(--plan)"></i>Planned trip (from planner)</span>
+      <span><i style="background:var(--plan)"></i>Planned trip</span>
       <span><i style="background:#fff;border:2px solid var(--gold)"></i>Today</span>
+      <span id="legWin" style="display:none"><i style="background:#ffe9a8"></i>180-day window before arrival</span>
+      <span style="flex-basis:100%">Tip: click an arrival date and then a departure date directly in the calendar to add a trip.</span>
     </div>
     <div class="legend" id="legAvail" style="display:none">
       <span><i style="background:#059669"></i>61–90 days</span>
@@ -484,14 +545,16 @@ async function signIn(){
 async function signUp(){
   const v = id => document.getElementById(id).value;
   const first = v("regFirst").trim(), last = v("regLast").trim(),
-        dd = v("regDobD").trim(), mm = v("regDobM").trim(), yy = v("regDobY").trim(),
         res = v("regRes").trim(), visa = v("regVisa"), email = v("regEmail").trim(),
         p1 = v("regPass"), p2 = v("regPass2");
   const msg = document.getElementById("regMsg");
+  const toIso = (d, m, y) => +d >= 1 && +d <= 31 && +m >= 1 && +m <= 12 && y.length === 4
+    ? y + "-" + m.padStart(2,"0") + "-" + d.padStart(2,"0") : null;
   if (!first || !last){ msg.textContent = "Please enter your first and last name."; return; }
-  const dobIso = +dd >= 1 && +dd <= 31 && +mm >= 1 && +mm <= 12 && yy.length === 4
-    ? yy + "-" + mm.padStart(2,"0") + "-" + dd.padStart(2,"0") : null;
+  const dobIso = toIso(v("regDobD").trim(), v("regDobM").trim(), v("regDobY").trim());
   if (!dobIso){ msg.textContent = "Please enter your date of birth (day, month, year)."; return; }
+  const expIso = toIso(v("regExpD").trim(), v("regExpM").trim(), v("regExpY").trim());
+  if (!expIso){ msg.textContent = "Please enter your visa expiry date (day, month, year)."; return; }
   if (!res){ msg.textContent = "Please enter your place of residence."; return; }
   if (!email.includes("@")){ msg.textContent = "Please enter a valid email address."; return; }
   if (p1.length < 8){ msg.textContent = "Password must have at least 8 characters."; return; }
@@ -499,7 +562,8 @@ async function signUp(){
   const b = document.getElementById("regBtn");
   b.disabled = true; b.textContent = "Creating account…"; msg.textContent = "";
   const { data, error } = await db.auth.signUp({ email, password: p1,
-    options: { data: { first_name: first, last_name: last, dob: dobIso, residence: res, visa } } });
+    options: { data: { first_name: first, last_name: last, dob: dobIso, residence: res,
+      visa, visa_expiry: expIso } } });
   b.disabled = false; b.textContent = "Create account";
   if (error){
     msg.textContent = /already|registered/i.test(error.message)
@@ -517,6 +581,20 @@ function fillProfile(user){
     ? md.dob.split("-").reverse().join(".") : "—";
   document.getElementById("pfRes").textContent = md.residence || "—";
   document.getElementById("pfVisa").textContent = md.visa || "—";
+  const expEl = document.getElementById("pfExp");
+  if (!md.visa_expiry){ expEl.textContent = "—"; return; }
+  expEl.textContent = md.visa_expiry.split("-").reverse().join(".");
+  const left = dnum(md.visa_expiry) - todayNum();
+  if (left < 183){
+    expEl.classList.add("expiring");
+    const txt = document.getElementById("visaWarnText");
+    txt.innerHTML = left < 0
+      ? "The visa expired on <strong>" + fmt(dnum(md.visa_expiry)) + "</strong> — " +
+        Math.abs(left) + " days ago. A new visa is needed before the next trip."
+      : "The visa expires on <strong>" + fmt(dnum(md.visa_expiry)) + "</strong> — in " +
+        left + " day" + (left === 1 ? "" : "s") + " (less than 6 months). Time to plan the renewal.";
+    document.getElementById("visaWarn").style.display = "flex";
+  }
 }
 async function signOut(){ await db.auth.signOut(); }
 
@@ -658,6 +736,8 @@ function changeYear(d){ calYear += d; renderCalendar(); }
 function setCalMode(m){
   calMode = m;
   localStorage.setItem("eurostay_cal_mode", m);
+  if (pickRange) popCancel();
+  pickFirst = null;
   updateCalToggle(); renderCalendar();
 }
 function updateCalToggle(){
@@ -670,6 +750,7 @@ function availClass(v){ return v === 0 ? "a0" : v <= 30 ? "a1" : v <= 60 ? "a2" 
 
 function renderCalendar(){
   const set = staySet(), today = todayNum();
+  const maxEnd = pickRange ? pickRange.start + maxStay(set, pickRange.start) - 1 : null;
   document.getElementById("calYear").textContent = calYear;
   const names = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const dows = ["Mo","Tu","We","Th","Fr","Sa","Su"];
@@ -692,14 +773,71 @@ function renderCalendar(){
       } else {
         let cls = "day";
         if (set.has(n)) cls += " stay";
+        else if (pickRange && n >= pickRange.start && n <= pickRange.end) cls += " plan";
         else if (plannedRange && n >= plannedRange.start && n <= plannedRange.end) cls += " plan";
+        if (pickRange && n >= pickRange.start - 179 && n < pickRange.start)
+          cls += set.has(n) ? " win180-stay" : " win180";
+        if (pickRange && n === pickRange.start - 179) cls += " win-edge";
+        if (maxEnd !== null && n === maxEnd && maxEnd >= pickRange.start) cls += " win-edge";
+        if (pickFirst === n) cls += " pick-start";
         if (n === today) cls += " today";
-        html += '<span class="' + cls + '">' + d + '</span>';
+        html += '<span class="' + cls + '" data-d="' + n + '">' + d + '</span>';
       }
     }
     html += '</div></div>';
   }
-  document.getElementById("months").innerHTML = html;
+  const monthsEl = document.getElementById("months");
+  monthsEl.className = "months" + (calMode === "trips" ? " pickable" : "");
+  monthsEl.innerHTML = html;
+}
+
+/* ---------- add trip by clicking the calendar ---------- */
+let pickFirst = null, pickRange = null;
+
+function initTripPick(){
+  document.getElementById("tpPoe").innerHTML = document.getElementById("tPoe").innerHTML;
+  document.getElementById("months").addEventListener("click", e => {
+    if (calMode !== "trips" || pickRange || !appStarted) return;
+    const cell = e.target.closest(".day");
+    if (!cell || !cell.dataset.d) return;
+    const n = +cell.dataset.d;
+    if (pickFirst === null) pickFirst = n;
+    else if (n === pickFirst) pickFirst = null;
+    else openTripPop(Math.min(pickFirst, n), Math.max(pickFirst, n));
+    renderCalendar();
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && pickRange) popCancel(); });
+}
+function openTripPop(a, b){
+  pickRange = { start: a, end: b };
+  pickFirst = null;
+  document.getElementById("tpDates").textContent =
+    fmt(a) + " → " + fmt(b) + " · " + (b - a + 1) + " days";
+  document.getElementById("tpNote").value = "";
+  document.getElementById("tripPop").style.display = "block";
+  document.getElementById("legWin").style.display = "inline";
+}
+function popCancel(){
+  pickRange = null; pickFirst = null;
+  document.getElementById("tripPop").style.display = "none";
+  document.getElementById("legWin").style.display = "none";
+  renderCalendar();
+}
+async function popSave(){
+  if (!pickRange) return;
+  const days = pickRange.end - pickRange.start + 1;
+  if (days > 90 && !confirm("This trip is longer than 90 days — that would exceed the Schengen limit. Add anyway?")) return;
+  const btn = document.getElementById("tpSaveBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+  const { error } = await db.from("trips").insert({
+    entry_date: iso(pickRange.start), exit_date: iso(pickRange.end),
+    note: document.getElementById("tpNote").value.trim(),
+    entry_point: document.getElementById("tpPoe").value });
+  btn.disabled = false; btn.textContent = "Add trip";
+  if (error){ alert("Could not save trip: " + error.message); return; }
+  trips = await loadTrips();
+  popCancel();
+  refresh();
 }
 
 /* ---------- trips ---------- */
@@ -845,19 +983,24 @@ function renderSchengenShare(){
 
 /* ---------- init ---------- */
 function refresh(){ renderStats(); renderCalendar(); renderTrips(); renderSchengenShare(); animateCharts(); }
-/* date-of-birth: three boxes, digits only, cursor advances automatically */
-["regDobD","regDobM","regDobY"].forEach((id, i, arr) => {
-  const el = document.getElementById(id);
-  el.addEventListener("input", () => {
-    el.value = el.value.replace(/\D/g, "");
-    if (el.value.length >= el.maxLength && i < arr.length - 1)
-      document.getElementById(arr[i+1]).focus();
+/* date rows: three boxes, digits only, cursor advances automatically */
+function wireDateRow(ids){
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", () => {
+      el.value = el.value.replace(/\D/g, "");
+      if (el.value.length >= el.maxLength && i < ids.length - 1)
+        document.getElementById(ids[i+1]).focus();
+    });
   });
-});
+}
+wireDateRow(["regDobD","regDobM","regDobY"]);
+wireDateRow(["regExpD","regExpM","regExpY"]);
 
 document.getElementById("planDate").value = iso(todayNum());
 updateToggle();
 updateCalToggle();
+initTripPick();
 refresh();
 initAuth();
 </script>
